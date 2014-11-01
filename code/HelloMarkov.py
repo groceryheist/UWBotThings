@@ -6,9 +6,9 @@ import io
 from nltk.probability import (ConditionalFreqDist,ConditionalProbDist,SimpleGoodTuringProbDist,LidstoneProbDist)
 from nltk.tokenize import (BlanklineTokenizer,WhitespaceTokenizer)
 from itertools import groupby
-import regex
+import re
 
-corpusFile = '../data/tweetCorpusClean.txt'
+corpusFile = 'tweetCorpusClean.txt'
 
 def makePlainTextCorpusFromDb():
 	connection = psycopg2.connect(database='SocialBots', user='postgres', password='postgres',host='localhost')
@@ -26,7 +26,7 @@ def nextWord(cfdist,w):
 
 
 
-mycorpus = nltk.corpus.PlaintextCorpusReader(root='.',fileids=corpusFile,word_tokenizer=WhitespaceTokenizer(),sent_tokenizer=BlanklineTokenizer())
+mycorpus = nltk.corpus.PlaintextCorpusReader(root='../data/',fileids=corpusFile,word_tokenizer=WhitespaceTokenizer(),sent_tokenizer=BlanklineTokenizer())
 # est = lambda fdist, bins: LidstoneProbDist(fdist, 0.2)
 # est = lambda fdist, bins: SimpleGoodTuringProbDist(fdist, None)
 
@@ -59,7 +59,7 @@ def generateTweet():
 		if len(cur) > 140 or sum([1 for i in counts.itervalues() if i > 0]):
 			isFound = False
 	
-	return re.sub('&amp;','&',' '.join([ i.strip('{').strip('}') for i in cur])).
+	return re.sub('&amp;','&',' '.join([ i.strip('{').strip('}') for i in cur]))
 
 # bigrams = nltk.bigrams(text)
 # trigrams = nltk.trigrams(text)
