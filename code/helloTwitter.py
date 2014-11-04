@@ -3,7 +3,7 @@
 #	request.GET.get
 import string
 import tweepy
-import psycopg2
+import psycopg2, psycopg2.extras
 
 import time
 
@@ -54,26 +54,20 @@ class Bot:
 
 	#TODO: use a bot database instead of flat file here if # of bots grows
 	def AuthorizeFromFile(self):
-		cur = conn.cursor()
-		cur.execute(str.format("SELECT user_id,access_key,access_secret,email,password,alias FROM bot WHERE alias = '{0}';",self.alias))
-		if(cur.rowcount == 0):
-			return False
-		
-		assert(cur.rowcount == 1)
-		result = cur.fetchone()
-		# print result
+		# try:
+			cur = conn.cursor(cursor_factory = psycopg2.extras.NamedTupleCursor)
+			cur.execute(str.format("SELECT user_id,access_key,access_secret,email,password,alias FROM bot WHERE alias = '{0}';",self.alias))
+			if(cur.rowcount == 0):
+				return False
+			
+			assert(cur.rowcount == 1)
+			result = cur.fetchone()
+			self.auth.set_access_token(result.access_key,result.access_secret)
+			self.api = tweepy.API(self.auth)
+			return True
 
-		try:
-			f = open(self.botKeysFile,'r')
-			lines = f.readlines()
-			for line in lines:
-				fields = str.split(line,'\t')
-				if(fields[0].strip() == self.alias):
-					self.auth.set_access_token(fields[1].strip(),fields[2].strip())
-					self.api = tweepy.API(self.auth)
-					return True
-		except Exception:
-			print "Error reading authorization file!" 
+		# except Exception:
+		# 	print "Error reading authorization file!" 
 
 	# def LatestStatus(self):
 	def AuthorizeBotAccount(self):
@@ -153,32 +147,32 @@ narrator = Bot('narrator',auth)
 # Bernardo = Bot('Bernardo,Officer')
 # fransicso = Bot('fransicso, a soldier')
 
-testvaxBot = Bot('testvaxBot')
-import HelloMarkov,random
+# testvaxBot = Bot('testvaxBot')
+# import HelloMarkov,random
 
-#times in seconds
-def sleepRandom(min,max):
-	dur = random.randint(min,max)
-	print "sleeping for dur:" + str(dur)
-	time.sleep(dur)
-
-
-def tweetNTimes(bot, printTweet = False):
-	ntimes = random.randint(0,10)
-
-	for i in range(0,ntimes):
-		tweet = HelloMarkov.generateTweet()
-		if(printTweet):
-			print tweet
-
-		bot.api.update_status(tweet)
-		sleepRandom(60,420)
+# #times in seconds
+# def sleepRandom(min,max):
+# 	dur = random.randint(min,max)
+# 	print "sleeping for dur:" + str(dur)
+# 	time.sleep(dur)
 
 
-# tweet according to a time patter
-while(True):
-	tweetNTimes(testvaxBot, True)
-	sleepRandom(60*60*0.75,60*60*1.5)
+# def tweetNTimes(bot, printTweet = False):
+# 	ntimes = random.randint(0,10)
+
+# 	for i in range(0,ntimes):
+# 		tweet = HelloMarkov.generateTweet()
+# 		if(printTweet):
+# 			print tweet
+
+# 		bot.api.update_status(tweet)
+# 		sleepRandom(60,420)
+
+
+# # tweet according to a time patter
+# while(True):
+# 	tweetNTimes(testvaxBot, True)
+# 	sleepRandom(60*60*0.75,60*60*1.5)
 
 
 # fransicso.me().id
