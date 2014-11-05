@@ -6,12 +6,10 @@ import json
 
 query = '#CDCwhistleblower'
 
-
 # download every last #saynotovaccines 
 #query once per 5 seconds
 max_id = -1
 has_results = True
-tweepy.Status
 max_count = 99999
 while(has_results and max_count > 0):
 	if(max_id < 0):
@@ -22,7 +20,7 @@ while(has_results and max_count > 0):
 	max_count = max_count - 1
 	has_results = len(current_page) != 0
 	print len(current_page)
-	max_id = min([page.id for page in current_page])
+	max_id = min([item.id for item in current_page])
 	# write results
 	for status in current_page:
 		bu.writeStatus(status)

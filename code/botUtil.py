@@ -87,9 +87,19 @@ class botUtil(object):
 
 			print 'wrote data for user %s'%(name)
 
-
-	def writeStatus(self,status):
+	def writeStatusList(self,statusList):
 		cursor = self.connection.cursor()
+
+		for status in statusList:
+			self.writeStatus(status,False,cursor)
+
+		self.connection.commit()		
+
+	def writeStatus(self,status,commit=True, cursor = None):
+		
+		if(cursor == None):
+			cursor = self.connection.cursor()
+
 
 		sid = status.id
 		txt = status.text
@@ -122,7 +132,8 @@ class botUtil(object):
 			cursor.execute(
 				query,(sid,txt,reply_id,author_id,retweet_id,retweet_count,user_reply_id,created_at,json.dumps(status._json)))
 
-			self.connection.commit()
+			if(commit):
+				self.connection.commit()
 
 	def __init__(self):	
 		self.connection = psycopg2.connect(database='SocialBots', user='postgres', password='postgres',host='localhost')
