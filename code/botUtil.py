@@ -2,8 +2,38 @@
 import psycopg2, psycopg2.extensions, psycopg2.extras
 import tweepy
 import json
+import time
 
 class botUtil(object):
+
+	def addFollowers(self,user,followers,api):
+
+		queryTemplate = """INSERT INTO follows VALUES(%s,%s);"""
+		if(self.isUserInDb(user)):
+			print 'found user %s in db'%user
+			cursor = self.connection.cursor() 
+			for follow in followers:
+				if(not self.isUserInDb(follow.id)):
+					self.writeUser(follow, commit=False)
+										
+				if not self.isFollowInDB(user,follow.id):
+					print 'user %s follows user %s'%(user,follow.id)
+					cursor.execute(queryTemplate,(user,follow.id))
+				else:
+					return False
+		else:
+			self.fetchAndInsertUser(user,api)
+
+		self.connection.commit()
+		return True
+
+
+	def fetchAndInsertUser(self,follow,api):
+		print 'fetching user %s'%follow
+		time.sleep(5.1)
+		user = api.get_user(follow)
+		self.writeUser(user, commit = False)
+		
 
 	def parseCreatedAt(self,model):
 		if(hasattr(model,'created_at')):
@@ -18,6 +48,15 @@ class botUtil(object):
 		else:
 			return None
 
+
+	def isFollowInDB(self, user, follow):
+		cursor = self.connection.cursor(cursor_factory = psycopg2.extras.NamedTupleCursor)		
+
+		cursor.execute("""SELECT COUNT(*) AS cnt FROM follows WHERE follower_id = %s AND followed_id = %s;""",(user,follow))
+		rec = cursor.fetchone().cnt
+		return rec == 1
+
+
 	def isUserInDb(self,uid):
 		cursor = self.connection.cursor(cursor_factory = psycopg2.extras.NamedTupleCursor)
 
@@ -26,7 +65,7 @@ class botUtil(object):
 		print rec
 		return rec != 0		
 
-	def writeUser(self,user_result):
+	def writeUser(self,user_result,commit=True):
 		
 		uid = user_result.id
 		name = user_result.screen_name
@@ -42,7 +81,10 @@ class botUtil(object):
 						VALUES(%s,%s,%s,%s,%s,%s);
 					"""
 			cursor.execute(query,(uid,name,profile,created_at,json.dumps(user_result._json),user_id))
-			self.connection.commit()
+
+			if commit:
+				self.connection.commit()
+
 			print 'wrote data for user %s'%(name)
 
 
@@ -84,3 +126,9 @@ class botUtil(object):
 
 	def __init__(self):	
 		self.connection = psycopg2.connect(database='SocialBots', user='postgres', password='postgres',host='localhost')
+
+	def __exit__(self,type,value,traceback):
+		self.connection.close()
+
+	def __enter__(self):
+		return self
