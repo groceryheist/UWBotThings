@@ -23,31 +23,44 @@ class getFollowers(object):
 		print "USAGE: python %s -f <userids file> -b <authenticated bot alias>"%(argv[0])
 
 	def __init__(self,argv):
-		self.parseparams(argv)
+		try:
+			self.parseparams(argv)
+			self.filename
+			self.bot
+		except Exception:
+			self.usage(argv)
 
-	def run(self):
+	def run(self, startingwith = None):
+		started = startingwith == None
 		with bu.botUtil() as helper:
 			with io.open(self.filename) as fs:
 				for line in fs.readlines():
-					page = -1
-					try:
-						followers,cursors = self.bot.api.followers(id=line, cursor=page)
-						print cursors
-						while len(followers) > 0:
-							print 'found followers for %s'%line
-							helper.addFollowers(line, followers, self.bot.api)										
-							time.sleep(60)		
-							followers,cursors = self.bot.api.followers(id = line,cursor = cursors[1])
+					if not started:
+						if line.strip() == startingwith:
+							print 'started'
+							started = True
 
-					except Exception as e:
-						print 'fetching followers for %s'%line
-						print e
-						time.sleep(5.1)
+					if started:	
+						page = -1
+						try:
+							followers,cursors = self.bot.api.followers(id=line, cursor=page)
+							print cursors
+							while len(followers) > 0:
+								
+								print 'found followers for %s'%line
+								helper.addFollowers(line, followers, self.bot.api)										
+								time.sleep(60)		
+								followers,cursors = self.bot.api.followers(id = line,cursor = cursors[1])
 
-					except tweepy.TweepError as e:
-						print 'fetching followers for %s'%line
-						print e
-						if str(e.reason) == "[{'message': 'Rate limit exceeded', 'code': 88}]":
-							time.sleep(15*60)
+						except Exception as e:
+							print 'fetching followers for %s'%line
+							print e
+							time.sleep(5.1)
 
-getFollowers(sys.argv).run()
+						except tweepy.TweepError as e:
+							print 'fetching followers for %s'%line
+							print e
+							if str(e.reason) == "[{'message': 'Rate limit exceeded', 'code': 88}]":
+								time.sleep(15*60)
+
+getFollowers(sys.argv).run(startingwith = "15235948")

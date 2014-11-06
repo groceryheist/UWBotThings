@@ -6,6 +6,55 @@ import time
 
 class botUtil(object):
 
+	def GetUpdateCursor(self):
+		return self.connection.cursor()
+
+	def commit(self):
+		self.connection.commit()
+
+	def ResultIter(self,cursor,chunksize = 1000):
+		while True:
+			results = cursor.fetchmany(chunksize)
+			if not results:
+				break
+			for result in results:
+				yield result				
+
+	def parseJsonFromRecord(self,record):
+		blob = record.rawjson
+		if(blob):			
+			obj = json.loads(blob)			
+			return obj
+
+	def setFollowerCount(self,id,follower_count,cursor):
+		query = """UPDATE twitter_user SET num_followers = %s WHERE id = %s;"""
+		params = (follower_count,id)
+		print query%params
+		cursor.execute(query, params)
+		
+	def setIsTarget(self,id,cursor,condition):
+		query = """UPDATE twitter_user SET isTarget = %s WHERE id = %s""";
+		params = (condition,id)
+		cursor.execute(query,params)
+		print query%params
+
+
+	def listUsers(self):
+		cursor = self.connection.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor)
+		query = """SELECT * FROM twitter_user;"""
+		cursor.execute(query)
+		return self.ResultIter(cursor)
+
+	def usersTweetsAreDown(self,uid, minTweets = 200):
+		cursor = self.connection.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor)
+		query = "SELECT COUNT(*) AS cnt FROM status WHERE author_id = %s;"%uid
+		# params = (uid)
+		# cursor.execute(query,params)
+		cursor.execute(query)
+		# print query%params
+		return cursor.fetchone().cnt >= minTweets
+
+
 	def addFollowers(self,user,followers,api):
 
 		queryTemplate = """INSERT INTO follows VALUES(%s,%s);"""
@@ -66,7 +115,7 @@ class botUtil(object):
 		return rec != 0		
 
 	def writeUser(self,user_result,commit=True):
-		
+		tweepy.User
 		uid = user_result.id
 		name = user_result.screen_name
 		user_id = self.tryGetAttribute(user_result,'user_id')
@@ -77,7 +126,7 @@ class botUtil(object):
 		cursor = self.connection.cursor(cursor_factory = psycopg2.extras.NamedTupleCursor)
 
 		if not self.isUserInDb(uid):
-			query = """ INSERT INTO twitter_user(id,user_name,profile,created_at,_json,user_id)
+			query = """ INSERT INTO twitter_user(id,user_name,profile,created_at,rawjson,user_id)
 						VALUES(%s,%s,%s,%s,%s,%s);
 					"""
 			cursor.execute(query,(uid,name,profile,created_at,json.dumps(user_result._json),user_id))
@@ -139,6 +188,7 @@ class botUtil(object):
 		self.connection = psycopg2.connect(database='SocialBots', user='postgres', password='postgres',host='localhost')
 
 	def __exit__(self,type,value,traceback):
+		self.connection.commit()
 		self.connection.close()
 
 	def __enter__(self):

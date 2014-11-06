@@ -129,20 +129,20 @@ access_token = '2838720400-1mqpL8Tg9ltuCqtsjLoXxAPep3PBg6AxkHZiarn'
 access_token_secret = 'p6rvcJJIgAwKpPTIah396bHetIQmvd5cpKFqbnjbN0hlK'
 
 auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-auth.set_access_token(access_token,access_token_secret)
+# auth.set_access_token(access_token,access_token_secret)
 
-api = tweepy.API(auth)
+# api = tweepy.API(auth)
 
 #api.update_status("hello twitter")
 #for result in tweepy.Cursor(api.search,q='#saynotovaccines',result_type='popular').items(20):
 # 	print result.text
-l = StreamListener()
+# l = StreamListener()
 
 # franAuth = tweepy.OAuthHandler(consumer_key, consumer_secret)
 # franAuth.set_access_token('2868387492-zE74EVh8hGuCLThVz7XltMTNjtTbw9Gub4sOpUU','I9XC2iCgeGzdfnKLuD2ugeqpUfzQQBSMjDKWPgjCOsuFJ')
 
 
-narrator = Bot('narrator',auth)
+#narrator = Bot('narrator',auth)
 
 # Bernardo = Bot('Bernardo,Officer')
 # fransicso = Bot('fransicso, a soldier')
