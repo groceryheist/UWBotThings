@@ -46,3 +46,4 @@ docs/_build/
 target/
 # manually added ignore files
 data/beta-randomized.txt
+data/

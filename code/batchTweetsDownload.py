@@ -28,23 +28,30 @@ class getTweets(object):
 	def __init__(self,argv):
 		self.parseparams(argv)
 
-	def pullEntireTimeline(self,api,uid,botUtil):
+	def pullEntireTimeline(self,api,uid,botUtil,limit = None, fromStatus = None):
 		has_results = True
-		max_id = -1
+		if(fromStatus != None):
+			max_id = fromStatus
+		else:
+			max_id = -1
+
 		while(has_results):
+			print(max_id)
 			if(max_id < 0):
 				current_page = api.user_timeline(id=uid)
 			else:
 				current_page = api.user_timeline(id=uid, max_id = max_id)
 			
 			has_results = len(current_page) > 0
+
 			if(has_results):
-				max_id = min([item.id for item in current_page])
+				# don't request the latest status
+				max_id = min([item.id for item in current_page]) - 1
+				
 				# last one is 560976863
 			print 'writing page of status for %s'%uid
 			botUtil.writeStatusList(current_page)
 			time.sleep(5.01)
-
 
 
 	def run(self):
@@ -55,7 +62,13 @@ class getTweets(object):
 					if not started: 
 						started = line.strip() == self.startingwith
 					if started:
-						if(not helper.usersTweetsAreDown(uid = line.strip())):
-							self.pullEntireTimeline(self.bot.api,line,helper)
+						oldestStatus = helper.getOldestUsersTweet(line)
+						if(oldestStatus):
+							fromStatus = oldestStatus.id
+						else:
+							fromStatus = None
+						print fromStatus							
+						if(not helper.usersTweetsAreDown(uid = line.strip(), maxTweets = 1000)):
+							self.pullEntireTimeline(api=self.bot.api,uid = line,botUtil = helper,fromStatus = fromStatus)
 
 getTweets(sys.argv).run()

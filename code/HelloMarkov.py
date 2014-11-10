@@ -39,7 +39,7 @@ lm = nltk.model.ngram.NgramModel(n = 3, train = text)
 print lm
 print lm._backoff
 def generateTweet():
-	startword = lm._backoff.generate(1,'{')
+	startword = " ebola "
 	isFound = False
 
 	tries = 10
@@ -60,6 +60,9 @@ def generateTweet():
 			isFound = False
 	
 	return re.sub('&amp;','&',' '.join([ i.strip('{').strip('}') for i in cur]))
+
+for i in range(10):
+	print generateTweet()
 
 # bigrams = nltk.bigrams(text)
 # trigrams = nltk.trigrams(text)
