@@ -11,6 +11,8 @@ class topic(object):
 		self.query = topic_json['query']
 		self.name = topic_json['name']
 
+	def __str__(self):
+		return '{query=%s,name=%s}'%(self.query,self.name)
 
 
 class status(object):
