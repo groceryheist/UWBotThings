@@ -7,13 +7,13 @@ import dateutil.parser
 
 
 class topic(object):
+	
 	def __init__(self,topic_json):
 		self.query = topic_json['query']
 		self.name = topic_json['name']
 
 	def __str__(self):
 		return '{query=%s,name=%s}'%(self.query,self.name)
-
 
 class status(object):
 	def __init__(self,tweepyStatus,trendingTopic = None):
@@ -34,27 +34,27 @@ class status(object):
 		self.json = json.dumps(tweepyStatus._json)
 
 	def getRecord(self):
-		if(self.topic):
-			topicName = topic.name
-			topicQuery = topic.query
+		if(self.topic != None):
+			topicName = self.topic.name
+			topicQuery = self.topic.query
 		else:
 			topicName = ''
 			topicQuery = ''
 
 		return (self.sid,
-			self.txt, 
+			self.txt.replace('\n',' ').replace('\r',' '), 
 			self.reply_id,
 			self.author_id,
 			self.retweet_id,
 			self.retweet_count,
 			self.user_reply_id,
-			self.json,
-			self.created_at,
+			self.json.replace('\\','\\\\'),
+			str(self.created_at).split('::')[0],
 			topicName,
 			topicQuery)
 
-	def __str__(self):		
-		return ','.join(self.getRecord())
+	def __unicode__(self):		
+		return '\t'.join(unicode(item) for item in self.getRecord())
 
 
 class botUtil(object):
@@ -306,7 +306,7 @@ class botUtil(object):
 				self.connection.commit()
 
 	def __init__(self):	
-		self.connection = psycopg2.connect(database='SocialBots', user='postgres', password='postgres',host='localhost')
+		self.connection = psycopg2.connect(database='socialbots', user='nate', password='b00mTown',host='alahele.ischool.uw.edu')
 
 	def __exit__(self,type,value,traceback):
 		self.connection.commit()

@@ -4,18 +4,16 @@ import botUtil,helloTwitter as ht
 import tweepy
 import json
 import threading
-import time,os,codecs
+import time,os,codecs,StringIO,io
 
 class writeOutStatusListener(tweepy.StreamListener):
 
 	def __init__(self,topics,api):
 		self.linesWritten = 0	
-		self.chunk_size = 3000
+		self.chunk_size = 1000
 		self.lock = threading.Lock()
 		self.topics = topics
-		self.chunkFile0 = '~%sstreamChunk0'%id(self)
-		self.chunkFile1 = '~%sstreamChunk1'%id(self)
-		self.currentChunk = codecs.open(self.chunkFile0,mode='w',encoding='utf-8')
+		self.currentChunk = StringIO.StringIO()
 		self.api = api
 
 	def on_data(self, raw_data):
@@ -61,35 +59,45 @@ class writeOutStatusListener(tweepy.StreamListener):
 
 	def _changeCurrentChunk(self):
 		self.lock.acquire()
-		self.currentChunk.close()		
-		if(self.currentChunk == self.chunkFile0):
-			self.currentChunk 	= codecs.open(self.chunkFile1, mode='w',encoding='utf-8')
-		else:
-			self.currentChunk = codecs.open(self.chunkFile0, mode='w',encoding='utf-8')
-
+		self.currentChunk = StringIO.StringIO()		
 		self.linesWritten = 0
 		self.lock.release()
 
-	def commit_data(self):
+	def write_chunk(self,chunktoCopy):
 		with botUtil.botUtil() as helper:
-			chunktoCopy = self.currentChunk
-			self._changeCurrentChunk()
-
 			cursor = helper.GetUpdateCursor()
-			chunktoCopy = open(chunktoCopy.name,mode='r')
-			cursor.copy_from(chunktoCopy,'status')
+			chunktoCopy.seek(0)
+			cursor.copy_from(chunktoCopy,'status',null='None',columns=['id','txt','status_reply_id','author_id','retweet_id','retweet_count','user_reply_id','rawjson','created_at','trend_name','trend_query'])
+			helper.commit()
+			chunktoCopy.close()
+
+	def commit_data(self):
+		
+			chunktoCopy = self.currentChunk
+			self._changeCurrentChunk()		
+			thread = threading.Thread(target=self.write_chunk,args=[chunktoCopy])
+			thread.start()
+			
 			print 'chunk of statuses written'
 
 
 	# def on_limit(self,track):
 	# 	print "limited!"
 	# 	return False
+	def findStatusTopic(self,tweepyStatus):
+		matches = [topic for topic in self.topics if topic.name in tweepyStatus.text]
+		if(len(matches) > 0):
+			return matches[0]
+
+	def on_limit(self,track):
+		print(track)
+		return
 
 	def on_status(self,tweepyStatus):
 	# parse the status and write to chunk file
-		topic = [topic for topic in self.topics if topic.name in tweepyStatus.text][0:1]
+		topic = self.findStatusTopic(tweepyStatus)
 		statusObj = botUtil.status(tweepyStatus,topic)
-		self.currentChunk.write(statusObj.txt + '\n')
+		self.currentChunk.write(unicode(statusObj).replace(u'\\\"','\\\\\"') + u'\n')
 		self.linesWritten += 1
 		if self.linesWritten >= self.chunk_size:
 			self.commit_data()
@@ -139,11 +147,11 @@ class trending(object):
 		return [botUtil.topic(trend) for trend in apiResult['trends']]
 
 
-	def streamTopics(self,topics,language = None):		
+	def streamTopics(self,topics,languages = None):		
 		stream = tweepy.Stream(self.api.auth,writeOutStatusListener(topics,self.api))
-		track = ','.join([t.name for t in topics])
+		track = [t.name for t in topics]
 		print track
-		stream.filter(track=track, languages=language)
+		stream.filter(track=track, languages=languages)
 
 def flatten(l):
 	return [item for sublist in l for item in sublist]
@@ -153,6 +161,6 @@ t = trending('testvaxBot')
 topics = t.getTopics(t.getUnitedStatesWOEID())
 
 
-t.streamTopics(topics[0:1])#,language = 'en')
+t.streamTopics(topics,languages = ['en'])
 # print t.getTopicQueries(t.getUnitedStatesWOEID())
 
