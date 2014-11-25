@@ -4,6 +4,7 @@ import tweepy
 import sys
 import io
 import time
+import logging
 sys.path.append("models/")
 from Twitter_User import Twitter_User
 from ModelBase import SessionFactory,Status
@@ -39,7 +40,7 @@ class getTweets(object):
         has_results = True
 
         if(fromStatus is not None):
-            max_id = fromStatus
+            max_id = fromStatus - 1
         else:
             max_id = -1
         added = 0
@@ -71,10 +72,11 @@ class getTweets(object):
                     status = Status.StatusFromTweepy(result)
                     if(sesh.query(Status).filter(Status.sid == status.sid).scalar()
                        is None and user.uid == status.author_id):
+                        logging.info( 'writing status:%s' % status.sid)
                         sesh.add(status)
                         added += 1
-                sesh.flush()
-                time.sleep(5)
+                sesh.commit()
+            time.sleep(5)
 
     def run(self):
         pageSize = 200
@@ -106,7 +108,7 @@ class getTweets(object):
                     numUsersStatusesDown = user.statuses_count
 
                     usersStatuses = user.GetKnownStatuses(sesh)
-                    print unicode(usersStatuses.first()).encode('utf-8')
+#                    print unicode(usersStatuses.first()).encode('utf-8')
                     if not started:
                         started = line.strip() == self.startingwith
 
@@ -114,7 +116,7 @@ class getTweets(object):
                         oldestStatus = usersStatuses.order_by(
                             Status.sid.asc()).first()
                         if(oldestStatus is not None):
-                            fromStatus = oldestStatus.sid - 1
+                            fromStatus = oldestStatus.sid
                         else:
                             fromStatus = None
                         print unicode(fromStatus).encode('utf-8')
@@ -127,5 +129,6 @@ class getTweets(object):
                                                     fromStatus=fromStatus
                                                     )
                     sesh.commit()
-                    sesh.close()
+                sesh.close()
+
 getTweets(sys.argv).run()
