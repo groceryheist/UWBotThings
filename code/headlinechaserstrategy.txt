@@ -1,0 +1,5 @@
+
+MVP strategy
+
+1. train a tweet generator for the top trends
+2. getTweet() just picks a random tweet generator

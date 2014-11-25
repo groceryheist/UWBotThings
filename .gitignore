@@ -47,3 +47,7 @@ target/
 # manually added ignore files
 data/beta-randomized.txt
 data/
+#emacs buffers
+*~
+#rope project
+code/.ropeproject/
