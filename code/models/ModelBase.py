@@ -2,7 +2,7 @@
 from sqlalchemy.ext.declarative import declarative_base
 
 from sqlalchemy import create_engine
-import modelconfig
+import ModelConfig as modelconfig
 # import ModelBase
 
 from sqlalchemy import BigInteger, Text, DateTime, Boolean, Column
@@ -169,6 +169,7 @@ class Trend(Base):
 
 
 config = modelconfig.modelconfig()
+
 
 engine = create_engine(config.connectionString, echo=config.echo)
 
