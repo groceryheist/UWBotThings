@@ -1,6 +1,8 @@
 import sys
 sys.path.append("../models/")
-import ModelBase
 
-session = ModelBase.SessionFactory.Session()
-print(session.Query("Status")[0])
+from ModelBase import Status, SessionFactory
+import codecs
+
+session = SessionFactory()
+print unicode(session.query(Status)[0])
