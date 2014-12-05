@@ -5,13 +5,20 @@ from sqlalchemy import create_engine
 import modelconfig
 # import ModelBase
 
-from sqlalchemy import BigInteger, Text, DateTime, Boolean, Column
+from sqlalchemy import BigInteger, Text, DateTime, Boolean, Column,Float
 from sqlalchemy import Integer, ForeignKey, ForeignKeyConstraint
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.dialects.postgresql import JSON
 
 Base = declarative_base()
 
+
+#relationship of user A follows user B
+class Follows(Base):
+    __tablename__ = 'follows'
+    usera = Column(BigInteger, primary_key=True)
+    userb = Column(BigInteger, primary_key=True)
+    
 
 class Twitter_User(Base):
     __tablename__ = 'twitter_user'
@@ -90,6 +97,14 @@ class Status(Base):
       self.is_truncated)
 
     @staticmethod
+    def AddManyStatusFromTweepy(statuses):
+        sesh = SessionFactory()
+        [sesh.add(Status.StatusFromTweepy(s)) for s in statuses
+         if(sesh.query(Status).filter(Status.sid == s.id).scalar is None)]
+        sesh.commit()
+        sesh.close()
+    
+    @staticmethod
     def StatusFromTweepy(tweepyStatus, verbose=False, trend=None):
         if(trend is not None):
             trend_name = trend.trend_name
@@ -111,7 +126,7 @@ class Status(Base):
                       retweet_id=None,
                       retweet_id_holding=retweeted_id,
                       retweet_count=tweepyStatus.retweet_count,
-                      user_reply_id=tweepyStatus.in_reply_to_status_id,                      
+                      user_reply_id=tweepyStatus.in_reply_to_status_id,
                       rawjson=tweepyStatus._json,
                       created_at=tweepyStatus.created_at,
                       trend_name=trend_name,
@@ -150,7 +165,21 @@ class Bot(Base):
     email = Column(Text)
     password = Column(Text)
     alias = Column(Text)
+    botrole = Column(Text) # scoreing, streaming, support
+    activity_level = Column(Float)
+    lastmention = Column(BigInteger)
+    lastmessage = Column(BigInteger)
+    lastawake = Column(DateTime)
 
+    
+    @staticmethod
+    def fromRecordArray(rg):
+        rg = [e.strip(" '\"\r\n") for e in rg]
+        return Bot(uid=rg[0], access_key=rg[1], access_secret=rg[2],
+                   email=rg[3], password=rg[4], alias=rg[5])
+
+    def __repr__(self):
+        return "Bot<uid=%s,access_key=%s,access_secret=%s,email=%s,password=%s,alias=%s>"%(self.uid,self.access_key,self.access_secret,self.email,self.password, self.alias)
 
 class Trend(Base):
     __tablename__ = 'trend'

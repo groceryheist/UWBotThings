@@ -10,3 +10,4 @@ class Trend(Trend):
                      created_at=record.created_at,
                      as_of=record.as_of
                      )
+
