@@ -74,7 +74,7 @@ class Controller(object):
 
     def getUsersForBot(self, bot, sesh, n = 5):
 
-        query = sesh.query(Twitter_User)
+        query = sesh.query(Twitter_User).filter(Twitter_User.istarget == True)
         count = int(query.count())
         users = []
         for i in range(0, n):
