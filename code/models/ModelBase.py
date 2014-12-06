@@ -1,16 +1,21 @@
 # base class for sqlalchemy models
 from sqlalchemy.ext.declarative import declarative_base
-
+import json
 from sqlalchemy import create_engine
-import ModelConfig as modelconfig
+import modelconfig
 # import ModelBase
 
-from sqlalchemy import BigInteger, Text, DateTime, Boolean, Column,Float
+from sqlalchemy import BigInteger, Text, DateTime, Boolean, Column, Float
 from sqlalchemy import Integer, ForeignKey, ForeignKeyConstraint
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.dialects.postgresql import JSON
 
 Base = declarative_base()
+
+class HashTag(Base):
+    __tablename__ = 'hashtags'
+    status = Column(BigInteger, primary_key =  True)
+    hashtag = Column(Text, primary_key = True)
 
 
 #relationship of user A follows user B
@@ -56,6 +61,7 @@ class Status(Base):
     status_reply_id = Column(BigInteger, ForeignKey('status.sid'))
     status_reply_id_holding = Column(BigInteger)
     author_id = Column(BigInteger, ForeignKey('twitter_user.uid'))
+
     retweet_id = Column(BigInteger, ForeignKey('status.sid'))
     retweet_id_holding = Column(BigInteger)
     user_reply_id = Column(BigInteger)    # ,ForeignKey('twitter_user.uid'))
@@ -103,21 +109,34 @@ class Status(Base):
          if(sesh.query(Status).filter(Status.sid == s.id).scalar is None)]
         sesh.commit()
         sesh.close()
+
+
+    def hashtags(self):
+        if(type(self.rawjson) == str or type(self.rawjson) == unicode):
+            js = json.loads(self.rawjson)
+        else:
+            js = self.rawjson
+        if('entities' in js):
+            entities = js['entities']
+            if 'hashtags' in entities:
+                hts = entities['hashtags']
+                return [HashTag(hashtag = ht['text'], status=self.sid) for ht in hts]
+                        
     
     @staticmethod
-    def StatusFromTweepy(tweepyStatus, verbose=False, trend=None):
+    def StatusFromTweepy(tweepyStatus, verbose=False, trend=None, sesh = None):
         if(trend is not None):
             trend_name = trend.trend_name
             query = trend.query
         else:
             trend_name = None
             query = None
-
+            
         if(hasattr(tweepyStatus,'retweeted_status')):
             retweeted_id = tweepyStatus.retweeted_status.id
         else:
             retweeted_id = None
-
+        
         return Status(sid=tweepyStatus.id,
                       txt=tweepyStatus.text,
                       status_reply_id_holding=tweepyStatus.in_reply_to_user_id,
@@ -199,8 +218,7 @@ class Trend(Base):
 
 config = modelconfig.modelconfig()
 
-
-engine = create_engine(config.connectionString, echo=config.echo)
+engine = create_engine(config.connectionString, echo=config.echo, pool_size=400,max_overflow=100)
 
 # uncomment to create db
 Base.metadata.create_all(engine)

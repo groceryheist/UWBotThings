@@ -51,3 +51,4 @@ data/
 *~
 #rope project
 code/.ropeproject/
+code/*.txt
