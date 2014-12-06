@@ -21,7 +21,7 @@ class Controller(object):
             minutesToSleep = min([random.gauss(360, 100), 60*((7 - curhour) % 24)])
         else:
             minutesToSleep  = random.gauss(360, 100) + ((5-curhour) % 24)*60
-        return 15
+        return minutesToSleep * 60
         
     def getTopHashTags(self, n = 40):
         sesh = SessionFactory()
@@ -83,7 +83,7 @@ class Controller(object):
         return users
 
     def getAwakeTimeForBot(self,bot):
-        return 360
+        return 30*60
     
     def planBot(self, bot,sesh):
         tweets = self.getTweetsForBot(bot)
