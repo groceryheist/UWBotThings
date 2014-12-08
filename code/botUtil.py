@@ -19,23 +19,23 @@ class topic(object):
     def __str__(self):
         return '{query=%s,name=%s}'%(self.query,self.name)
 
-## class status(object):
-##     def __init__(self,tweepyStatus,trendingTopic = None):
-##         self.sid = tweepyStatus.id
-##         self.txt = tweepyStatus.text
-##         self.reply_id = tweepyStatus.in_reply_to_status_id
-##         self.author_id = tweepyStatus.author.id
+class status(object):
+    def __init__(self,tweepyStatus,trendingTopic = None):
+        self.sid = tweepyStatus.id
+        self.txt = tweepyStatus.text
+        self.reply_id = tweepyStatus.in_reply_to_status_id
+        self.author_id = tweepyStatus.author.id
 
-##         self.created_at = botUtil.parseCreatedAt(tweepyStatus)
-##         if hasattr(tweepyStatus,'retweeted_tweepyStatus'):
-##             self.retweet_id = tweepyStatus.retweeted_tweepyStatus.id
-##         else:
-##             self.retweet_id = None
+        self.created_at = botUtil.parseCreatedAt(tweepyStatus)
+        if hasattr(tweepyStatus,'retweeted_tweepyStatus'):
+            self.retweet_id = tweepyStatus.retweeted_tweepyStatus.id
+        else:
+            self.retweet_id = None
 
-##         self.retweet_count = tweepyStatus.retweet_count
-##         self.user_reply_id = tweepyStatus.in_reply_to_user_id
-##         self.topic = trendingTopic
-##         self.json = json.dumps(tweepyStatus._json)
+        self.retweet_count = tweepyStatus.retweet_count
+        self.user_reply_id = tweepyStatus.in_reply_to_user_id
+        self.topic = trendingTopic
+        self.json = json.dumps(tweepyStatus._json)
 
     def getRecord(self,rawFormat = True):
         if(self.topic != None):
@@ -46,28 +46,37 @@ class topic(object):
             topicQuery = ''
         if(rawFormat):
             return (self.sid,
-                self.txt.replace('\n',' ').replace('\r',' '), 
-                self.reply_id,
-                self.author_id,
+                self.txt.replace('\n',' ').replace('\r',' '),
+                None,
+                None,
                 self.retweet_id,
                 self.retweet_count,
                 self.user_reply_id,
                 self.json.replace('\\','\\\\'),
                 str(self.created_at).split('::')[0],
                 topicName,
-                topicQuery)
+                topicQuery,
+                None,
+                None,
+                self.reply_id,
+                self.author_id
+                    )
         else:
             return (self.sid,
                 self.txt,
-                self.reply_id,
-                self.author_id,
+                None,
+                None,
                 self.retweet_id,
                 self.retweet_count,
                 self.user_reply_id,
                 self.json,
                 self.created_at,
                 topicName,
-                topicQuery)
+                topicQuery,
+                None,
+                None,
+                self.reply_id,
+                self.author_id)
 
     def __unicode__(self):        
         return '\t'.join(unicode(item) for item in self.getRecord())
@@ -341,7 +350,7 @@ class botUtil(object):
 
 
     def __init__(self):    
-        self.connection = psycopg2.connect(database='socialbots', user='nate', password='b00mTown',host='alahele.ischool.uw.edu')
+        self.connection = psycopg2.connect(database='SocialBots2', user='nate', password='b00mTown',host='alahele.ischool.uw.edu')
 
     def __exit__(self,type,value,traceback):
         self.connection.commit()

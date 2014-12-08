@@ -7,8 +7,9 @@ import time
 import logging
 sys.path.append("models/")
 from Twitter_User import Twitter_User
-from ModelBase import SessionFactory,Status
+from ModelBase import SessionFactory,Status,HashTag
 import codecs
+from sqlalchemy import and_
 
 class getTweets(object):
     consumer_key = 'BefDhm8Lfs1jBrS22JRsZER44'
@@ -51,7 +52,7 @@ class getTweets(object):
                 if(max_id < 0):
                     current_page = api.user_timeline(id=user.uid, count=200)
                 else:
-                    current_page = api.user_timeline(id=user.uid, max_id=max_id, count=200)
+                    current_page = api.user_timeline(id=user.uid, max_id = max_id, count=200)
 
                 has_results = len(current_page) > 0
 
@@ -69,11 +70,15 @@ class getTweets(object):
                 print 'writing page of status for %s,%s' % (user.user_name, user.uid)
 
                 for result in current_page:
-                    status = Status.StatusFromTweepy(result)
+                    status = Status.StatusFromTweepy(result)                    
                     if(sesh.query(Status).filter(Status.sid == status.sid).scalar()
                        is None and user.uid == status.author_id):
                         logging.info( 'writing status:%s' % status.sid)
                         sesh.add(status)
+                        for ht in status.hashtags():
+                            if(sesh.query(HashTag).filter(and_(HashTag.status == ht.status,HashTag.hashtag==ht.hashtag))).scalar() is None:
+                                sesh.add(ht)
+                                                          
                         added += 1
                 sesh.commit()
             time.sleep(5)

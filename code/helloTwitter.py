@@ -113,7 +113,6 @@ class Bot:
         except TweepError:
             print 'Error! Failed to get user timeline'
 
-
 class StreamListener(tweepy.StreamListener):
     def on_status(self, tweet):
         print repr("new status" + tweet.text)

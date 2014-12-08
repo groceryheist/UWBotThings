@@ -70,27 +70,28 @@ class Bot(Bot):
         self.curtime += random.gauss(mu,sigma)
         return self.curtime
     
-    def awakeLoop(self,sesh, tweets, targetUsers, awakeTime = 1800):
+    def awakeLoop(self, tweets, targetUsers, awakeTime = 1800):
         # use rest API to get my statuses and make some tweets
         # number of tweets to make is a function of activity
         # activity level is the proportion of possible actions to make
-
+#        sesh = essionFactory()
+        
         tweetEvents = tweets[0:int(math.floor((self.activity_level*len(tweets))))]
         print tweetEvents
-        #engage with every target user
+        #engagewith every target user
         userinteractionEvents = targetUsers
         
         #handle my most recent retweets, relies, messages
 
         myMentions = self.api.mentions_timeline(count = 200, since = self.lastmention)
 
-        mychanges = sesh.merge(self)
+ #       mychanges = sesh.merge(self)
         if len(myMentions) > 0:
             self.lastmention = min([m.id for m in myMentions])
 
         else:
             self.lastmention = None
-        mychanges.lastmention = self.lastmention
+  #      mychanges.lastmention = self.lastmention
         
         newFollowers = self.addFollowers()
 
@@ -104,7 +105,7 @@ class Bot(Bot):
             self.lastmessage = min([m.id for m in myMessages])
         else:
             self.lastmessage = None
-        mychanges.lastmessage = self.lastmessage
+   #     mychanges.lastmessage = self.lastmessage
 
         print type(tweetEvents)
         print type(userinteractionEvents)
@@ -145,8 +146,8 @@ class Bot(Bot):
         t = threading.Thread(target=runAllEvents,args=[events])
         t.start()
         t.join()
-        sesh.commit()
-        sesh.close()
+       # sesh.commit()
+       # sesh.close()
 
     def addFollow(self,id):
         self.follow(targetUid = id)
@@ -169,15 +170,20 @@ class Bot(Bot):
         return
 
     def engageUser(self, user):
-        print ('user:%s is following user%s')%(self.alias,user.screenname)
-        self.follow(targetUid = user.uid)
-
+        sesh = SessionFactory()
+        bot = sesh.merge(self)
+        user = sesh.merge(user)
+        bot.wakeUp(sesh)
+        s = bot.api.user_timeline(user_id=user.uid, count=1)[0]
+        bot.api.retweet(s)
+        print ('user:%s is following user%s')%(bot.alias, user.user_name)
+        self.follow(targetUid = bot.uid)
         
     def makeStatus(self, message):
         print 'trying to tweet:' + message
         self.api.update_status(message)
     
-    def wakeUp(self):
+    def wakeUp(self, sesh):
 
         self.lastawake = datetime.now()
         auth = tweepy.OAuthHandler(apiKeys.consumer_key,
@@ -186,6 +192,7 @@ class Bot(Bot):
         auth.set_access_token(self.access_key,
                               self.access_secret)
         self.api = tweepy.API(auth)
+        sesh.commit()
     
     def activateUserStream(self, listener=None):
         if listener is None:
@@ -204,15 +211,16 @@ class Bot(Bot):
             
 
     def follow(self, target = None, targetUid = None):
-        if(self.uid != targetUid):
+        sesh = SessionFactory()
+        bot = sesh.merge(self)
+        if(bot.uid != targetUid):
             if target is not None:
                 targetUid = target.uid
             if targetUid is not None:
-                self.api.create_friendship(user_id=targetUid)
+                bot.api.create_friendship(user_id=targetUid)
             else:
                 raise Exception("bad argument passed to follow")
 
-            sesh = SessionFactory()
             #sesh.merge(self)
             if sesh.query(Follows).filter(and_(Follows.usera == self.uid, Follows.userb == targetUid)).scalar() is None:
                 sesh.add(Follows(usera = self.uid, userb = targetUid))

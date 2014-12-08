@@ -7,80 +7,86 @@ from nltk.probability import (ConditionalFreqDist,ConditionalProbDist,SimpleGood
 from nltk.tokenize import (BlanklineTokenizer,WhitespaceTokenizer)
 from itertools import groupby
 import re
+import math
 import botUtil
 
 class randomTweetGenerator(object):
-	corpusFile = 'tweetCorpusClean.txt'
-
-	def makePlainTextCorpusFromDb():
-		connection = psycopg2.connect(database='SocialBots', user='postgres', password='postgres',host='localhost')
-		cursor = connection.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor)
-		psycopg2.extensions.register_type(psycopg2.extensions.UNICODE, cursor)
-
-		cursor.execute("SELECT txt FROM status;")
-
-		with io.open('corpusFile', mode='w', encoding='UTF-8') as f:
-			f.writelines([ '{ { '+ item.txt + ' }' + '\n' for item in cursor.fetchall()])
 
 
-	def nextWord(cfdist,w):
-		return cfdist[w].max()
+    def __init__(self,hashtag):
+        self.corpusFile = hashtag + 'tweetCorpusClean.txt'
+        self.makePlainTextCorpusFromDb(hashtag)
+        mycorpus = nltk.corpus.PlaintextCorpusReader(root='.',fileids=self.corpusFile,word_tokenizer=WhitespaceTokenizer(),sent_tokenizer=BlanklineTokenizer())
+        
+    # est = lambda fdist, bins: LidstoneProbDist(fdist, 0.2)
+    # est = lambda fdist, bins: SimpleGoodTuringProbDist(fdist, None)
+    
+        text = mycorpus.words()
+    # unigrams = nltk.words(text)
+
+    # simport nltk.model.ngram
+        self.lm = nltk.model.ngram.NgramModel(n = 3, train = text)
+        
+    def makePlainTextCorpusFromDb(self, hashtag = ''):
+        connection = psycopg2.connect(database='SocialBots2', user='nate', password='b00mTown',host='alahele.ischool.uw.edu')
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor,name=hashtag+'builder')
+        psycopg2.extensions.register_type(psycopg2.extensions.UNICODE, cursor)
+
+        cursor.execute("SELECT DISTINCT txt, retweet_count FROM status WHERE status.txt ILIKE \'%%%s%%\';"%hashtag)
+        items = []
+        for item in cursor.fetchall():
+            n = int(math.ceil(math.log(item.retweet_count + 1, 10)))
+            for i in range(n):
+                items.append(item.txt)
+        
+        with io.open(self.corpusFile, mode='w', encoding='UTF-8') as f:
+            f.writelines([ '{ { '+ txt + ' }' + '\n' for txt  in items])
 
 
+    def nextWord(self,cfdist,w):
+        return cfdist[w].max()    
 
-	mycorpus = nltk.corpus.PlaintextCorpusReader(root='../data/',fileids=corpusFile,word_tokenizer=WhitespaceTokenizer(),sent_tokenizer=BlanklineTokenizer())
-	# est = lambda fdist, bins: LidstoneProbDist(fdist, 0.2)
-	# est = lambda fdist, bins: SimpleGoodTuringProbDist(fdist, None)
+    def generateTweet(self):
+        startword = "{"
+        isFound = False
 
-	text = mycorpus.words()
-	# unigrams = nltk.words(text)
+        tries = 10
+        while(not isFound and tries > 0):
+            # print tries
+            tries = tries - 1
+            counts = {}
+            cur = self.lm.generate(12,startword)
+            isFound = True
+            for key,group in groupby(sorted(cur), lambda x: x):
+                if('#' in key):
+                    if key in counts:
+                        counts[key] = counts[key] + 1
+                    else:
+                        counts[key] = 1            
 
-	# simport nltk.model.ngram
-	lm = nltk.model.ngram.NgramModel(n = 3, train = text)
-	# , estimator = est) 
-	print lm
-	print lm._backoff
-	def generateTweet():
-		startword = " ebola "
-		isFound = False
+            if len(cur) > 140 or sum([1 for i in counts.itervalues() if i > 0]) > 3:
+                isFound = False
+        
+        return re.sub('&amp;','&',' '.join([ i.strip('{').strip('}') for i in cur]))
 
-		tries = 10
-		while(not isFound and tries > 0):
-			# print tries
-			tries = tries - 1
-			counts = {}
-			cur = lm.generate(12,startword)
-			isFound = True
-			for key,group in groupby(sorted(cur), lambda x: x):
-				if('#' in key):
-					if key in counts:
-						counts[key] = counts[key] + 1
-					else:
-						counts[key] = 1			
+    #for i in range(10):
+     #   print generateTweet()
 
-			if len(cur) > 140 or sum([1 for i in counts.itervalues() if i > 0]):
-				isFound = False
-		
-		return re.sub('&amp;','&',' '.join([ i.strip('{').strip('}') for i in cur]))
+    # bigrams = nltk.bigrams(text)
+    # trigrams = nltk.trigrams(text)
 
-	for i in range(10):
-		print generateTweet()
+    # # pattern is 
 
-	# bigrams = nltk.bigrams(text)
-	# trigrams = nltk.trigrams(text)
+    # cfd = nltk.ConditionalFreqDist(trigrams)
 
-	# # pattern is 
-
-	# cfd = nltk.ConditionalFreqDist(trigrams)
-
-	# while(True):
-	# 	print nextWord(cfd,raw_input())
+    # while(True):
+    #     print nextWord(cfd,raw_input())
 
 
-	#print mycorpus.sents(corpusFile)[0]
+    #print mycorpus.sents(corpusFile)[0]
 
-	# print ten tweets
-	# for i in range(0, 9) :
-		# latest = ' '.join(lm.generate(18,[""]))
-		# print latest
-		# print len(latest)
+    # print ten tweets
+    # for i in range(0, 9) :
+        # latest = ' '.join(lm.generate(18,[""]))
+        # print latest
+        # print len(latest)
