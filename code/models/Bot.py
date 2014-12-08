@@ -17,6 +17,7 @@ class BotUserListener(tweepy.StreamListener):
     def __init__(self, api):
         self.api = api
         self.numAdded = 0
+        self.lastspam = None
        
 
     def on_error(self, status_code):
@@ -70,13 +71,17 @@ class Bot(Bot):
         self.curtime += random.gauss(mu,sigma)
         return self.curtime
     
-    def awakeLoop(self, tweets, targetUsers, awakeTime = 1800):
+    def awakeLoop(self, tweets, targetUsers, awakeTime=1800, spamTweet=None):
         # use rest API to get my statuses and make some tweets
         # number of tweets to make is a function of activity
         # activity level is the proportion of possible actions to make
 #        sesh = essionFactory()
-        
-        tweetEvents = tweets[0:int(math.floor((self.activity_level*len(tweets))))]
+
+        tweetEvents=tweets[0:int(math.floor((self.activity_level*len(tweets))))]
+
+        if(spamTweet is not None):
+            tweetEvents=[spamTweet] + tweetEvents
+            
         print tweetEvents
         #engagewith every target user
         userinteractionEvents = targetUsers
@@ -136,7 +141,7 @@ class Bot(Bot):
             actions.append((self.respondToMention, [mention]))
         
         for message in myMessages:
-            actions.append((self.respondToMention, [message]))
+            actions.append((self.respondToMessage, [message]))
 
         events = [threading.Timer(self.nextEventTime(mu, sigma), a[0], a[1]) for a in actions]
         def runAllEvents(events):
@@ -149,12 +154,29 @@ class Bot(Bot):
        # sesh.commit()
        # sesh.close()
 
+    def RespondToMessage(self, message):
+
+        if('bot' in message.txt.lower()):
+            if hasattr(self,'botMessages'):
+                botMsgs = ["You're kidding!","I'm not a bot dude!","WTF I'm not a fucking bot jerk!","Fuck Off I'm blocking you! I'm not a bot"]
+                if(len(botMsgs) < botMessages):
+                    toSend = botMsgs[-1]
+                else:
+                    toSend = botMsgs[botMessages]
+                self.api.send_direct_message(user = message.user,text=toSend)
+                self.botMessages+=1                
+            else:
+                self.botMessages=1
+        else:
+            self.api.send_direct_message(user=message.user,text=getResponseTweet())
+
+        
     def addFollow(self,id):
         self.follow(targetUid = id)
         
     def addFollowers(self):
         sesh = SessionFactory()
-#        bot = sesh.merge(self)
+#        bot = sesh.mergeno(self)
         myFollowers = self.api.followers_ids(count=5000)
         newFollowers = []
         for f in myFollowers:
@@ -165,9 +187,12 @@ class Bot(Bot):
         sesh.commit()
         sesh.close()
         return newFollowers
-            
+
+    def getResponseTweet(self):
+        return random.sample(["I'm not really sure I understand?","Where did you get that idea? Love that!","Awesome thoughts on that front.", "Where is your info coming from?", "Haha...love your opinions.", "Not following?", "Really?", "Right?!", "Not sure I'm following.", "Thanks for reaching out!", "Appreciate the interest!", "No way! Cool!", "Thanks for that.", "Muchas gracias.", "Haha", "yep yep.", "Muy bien!", "Haha. Nice!", "Radical.", "Radically glorious!", "Didn't think of that...but cool.", "Not sure?"], 1)[0]
+    
     def respondToMention(self, mention):
-        return
+        self.api.update_status('@' + mention.user.screen_name + ' ' + self.getResponseTweet())
 
     def engageUser(self, user):
         sesh = SessionFactory()
@@ -176,8 +201,13 @@ class Bot(Bot):
         bot.wakeUp(sesh)
         s = bot.api.user_timeline(user_id=user.uid, count=1)[0]
         bot.api.retweet(s)
+        bot.api.tweet(text = self.getOutReachTweet(user.screen_name))
         print ('user:%s is following user%s')%(bot.alias, user.user_name)
-        self.follow(targetUid = bot.uid)
+        self.follow(targetUid = user.uid)
+
+    def getOutReachTweet(self,screen_name):
+        ts =["Hey [user] love your thoughts!", "[user] you're ideas here are spot on.", "[user] thanks for a refreshing perspective.","[user] Thanks for pushing me to think differently?", "[user] awesome combo of info and hilarity!", "[user] your tweets are spot on. Nice work.", "[user] Rad stuff! Cool thoughts. Yo", "[user], really liking your perspective here.", "hey [user], interesting thoughts!", "[user]--great tweet content!", "[user] your tweeting skills are legendary!", "Seriously cool stuff :) [user]","Nice work [user]"]
+        return random.sample(ts,1)[0].replace('[user]','@'+screen_name)
         
     def makeStatus(self, message):
         print 'trying to tweet:' + message

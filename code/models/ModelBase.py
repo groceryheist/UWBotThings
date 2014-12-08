@@ -1,4 +1,4 @@
-# base class for sqlalchemy models
+#base class for sqlalchemy models
 from sqlalchemy.ext.declarative import declarative_base
 import json
 from sqlalchemy import create_engine
