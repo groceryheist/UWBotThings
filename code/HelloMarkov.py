@@ -12,7 +12,6 @@ import botUtil
 
 class randomTweetGenerator(object):
 
-
     def __init__(self,hashtag):
         self.corpusFile = hashtag + 'tweetCorpusClean.txt'
         self.makePlainTextCorpusFromDb(hashtag)
@@ -63,11 +62,12 @@ class randomTweetGenerator(object):
                         counts[key] = counts[key] + 1
                     else:
                         counts[key] = 1            
-
-            if len(cur) > 140 or sum([1 for i in counts.itervalues() if i > 0]) > 3:
+            result =  re.sub('&amp;','&',' '.join([ i.strip('{').strip('}') for i in cur]))
+            if 'cdcwhistleblower' in result.lower() or len(result) > 140 or sum([1 for i in counts.itervalues() if i > 0]) > 3:
                 isFound = False
-        
-        return re.sub('&amp;','&',' '.join([ i.strip('{').strip('}') for i in cur]))
+        return result
+
+
 
     #for i in range(10):
      #   print generateTweet()

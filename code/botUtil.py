@@ -48,7 +48,7 @@ class status(object):
             return (self.sid,
                 self.txt.replace('\n',' ').replace('\r',' '),
                 None,
-                None,
+                self.author_id,
                 self.retweet_id,
                 self.retweet_count,
                 self.user_reply_id,
@@ -60,12 +60,13 @@ class status(object):
                 None,
                 self.reply_id,
                 self.author_id
+                                
                     )
         else:
             return (self.sid,
                 self.txt,
                 None,
-                None,
+                self.author_id,
                 self.retweet_id,
                 self.retweet_count,
                 self.user_reply_id,

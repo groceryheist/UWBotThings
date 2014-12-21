@@ -72,6 +72,7 @@ class Status(Base):
     trend_query = Column(Text)
     url = Column(Text)
     is_truncated = Column(Boolean)
+    hashtagisset = Column(Boolean)
     ForeignKeyConstraint([trend_name, trend_query],
                          ['trend.trend_name', 'trend.trend_query'])
 

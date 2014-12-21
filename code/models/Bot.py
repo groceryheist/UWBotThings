@@ -77,12 +77,12 @@ class Bot(Bot):
         # activity level is the proportion of possible actions to make
 #        sesh = essionFactory()
 
-        tweetEvents=tweets[0:int(math.floor((self.activity_level*len(tweets))))]
-
+        tweetEvents=tweets[0:int(math.ceil((self.activity_level*len(tweets))))]
+   #     print tweetEvents
         if(spamTweet is not None):
             tweetEvents=[spamTweet] + tweetEvents
             
-        print tweetEvents
+      #  print tweetEvents
         #engagewith every target user
         userinteractionEvents = targetUsers
         
@@ -143,32 +143,36 @@ class Bot(Bot):
         for message in myMessages:
             actions.append((self.respondToMessage, [message]))
 
+        random.shuffle(actions)
         events = [threading.Timer(self.nextEventTime(mu, sigma), a[0], a[1]) for a in actions]
         def runAllEvents(events):
             print 'running events'
             for e in events:
                 e.start()
+            for e in events:
+                e.join()
+                
         t = threading.Thread(target=runAllEvents,args=[events])
         t.start()
         t.join()
        # sesh.commit()
        # sesh.close()
 
-    def RespondToMessage(self, message):
+    def respondToMessage(self, message):
 
-        if('bot' in message.txt.lower()):
+        if('bot' in message.text.lower()):
             if hasattr(self,'botMessages'):
                 botMsgs = ["You're kidding!","I'm not a bot dude!","WTF I'm not a fucking bot jerk!","Fuck Off I'm blocking you! I'm not a bot"]
                 if(len(botMsgs) < botMessages):
                     toSend = botMsgs[-1]
                 else:
                     toSend = botMsgs[botMessages]
-                self.api.send_direct_message(user = message.user,text=toSend)
+                self.api.send_direct_message(user_id = message.sender.id , text=toSend)
                 self.botMessages+=1                
             else:
                 self.botMessages=1
         else:
-            self.api.send_direct_message(user=message.user,text=getResponseTweet())
+            self.api.send_direct_message(user_id=message.sender.id, text=self.getResponseTweet())
 
         
     def addFollow(self,id):
@@ -192,16 +196,23 @@ class Bot(Bot):
         return random.sample(["I'm not really sure I understand?","Where did you get that idea? Love that!","Awesome thoughts on that front.", "Where is your info coming from?", "Haha...love your opinions.", "Not following?", "Really?", "Right?!", "Not sure I'm following.", "Thanks for reaching out!", "Appreciate the interest!", "No way! Cool!", "Thanks for that.", "Muchas gracias.", "Haha", "yep yep.", "Muy bien!", "Haha. Nice!", "Radical.", "Radically glorious!", "Didn't think of that...but cool.", "Not sure?"], 1)[0]
     
     def respondToMention(self, mention):
-        self.api.update_status('@' + mention.user.screen_name + ' ' + self.getResponseTweet())
+        self.makeStatus( '@' + mention.user.screen_name + ' ' + self.getResponseTweet())
 
     def engageUser(self, user):
         sesh = SessionFactory()
         bot = sesh.merge(self)
         user = sesh.merge(user)
         bot.wakeUp(sesh)
-        s = bot.api.user_timeline(user_id=user.uid, count=1)[0]
-        bot.api.retweet(s)
-        bot.api.tweet(text = self.getOutReachTweet(user.screen_name))
+        try:
+            s = bot.api.user_timeline(user_id=user.uid, count=1)[0]
+            bot.api.retweet(s.id)
+
+            if random.randint(0, 5) % 3 == 1:
+                bot.api.update_status(text = self.getOutReachTweet(user.user_name),in_reply_to_status_id = s.id)
+        except Exception as e:
+            print(str(e))
+            print('for bot:%s, user:%s, status:%s'%(bot, user.uid, s.id))
+            
         print ('user:%s is following user%s')%(bot.alias, user.user_name)
         self.follow(targetUid = user.uid)
 
@@ -211,7 +222,13 @@ class Bot(Bot):
         
     def makeStatus(self, message):
         print 'trying to tweet:' + message
-        self.api.update_status(message)
+        try:
+            self.api.update_status(status=message)
+        except Exception as e:
+            print 'exception maing status in Bot.py line 225'
+            print str(e)
+            print message
+            print self
     
     def wakeUp(self, sesh):
 
@@ -247,7 +264,12 @@ class Bot(Bot):
             if target is not None:
                 targetUid = target.uid
             if targetUid is not None:
-                bot.api.create_friendship(user_id=targetUid)
+                if hasattr(bot,'api'):
+                    bot.api.create_friendship(user_id=targetUid)
+                else:
+                    bot.wakeUp(sesh)
+                    bot.api.create_friendship(user_id=targetUid)
+                    
             else:
                 raise Exception("bad argument passed to follow")
 

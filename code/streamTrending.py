@@ -13,6 +13,7 @@ from sqlalchemy import func,and_
 from ModelBase import HashTag, Status, SessionFactory
 from Twitter_User import Twitter_User
 from Bot import Bot
+import populateHashTag
 
 class writeOutStatusListener(tweepy.StreamListener):
 
@@ -76,9 +77,13 @@ class writeOutStatusListener(tweepy.StreamListener):
         with botUtil.botUtil() as helper:
             cursor = helper.GetUpdateCursor()
             chunktoCopy.seek(0)
-            cursor.copy_from(chunktoCopy,'status',null='None',columns=['sid','txt','status_reply_id','author_id','retweet_id','retweet_count','user_reply_id','rawjson','created_at','trend_name','trend_query','is_truncated','url','status_reply_id_holding','retweet_id_holding'])
-            helper.commit()
-            chunktoCopy.close()
+            try:
+                cursor.copy_from(chunktoCopy,'status',null='None',columns=['sid','txt','status_reply_id','author_id','retweet_id','retweet_count','user_reply_id','rawjson','created_at','trend_name','trend_query','is_truncated','url','status_reply_id_holding','retweet_id_holding'])
+                helper.commit()
+            except Exception as e:
+                print(str(e))
+            finally:
+                chunktoCopy.close()
 
     def commit_data(self):
         
@@ -130,6 +135,7 @@ class writeOutStatusListener(tweepy.StreamListener):
        # t.start()
         #parse the status and write to chunk file
         statusObj = botUtil.status(tweepyStatus)
+
         self.currentChunk.write(unicode(statusObj).replace(u'\\\"','\\\\\"') + u'\n')
         self.linesWritten += 1
         if self.linesWritten >= self.chunk_size:
@@ -158,35 +164,35 @@ class StdOutListener(tweepy.StreamListener):
 
 
 
-class trending(object):
+# class trending(object):
 
-    def availableGeos(self):
-        available = self.api.trends_available()
-        for result in available:
-            if(result['placeType']['name'] == 'Country' and result['name'] == 'United States' and result['country'] == 'United States'):
-                print result['woeid']
-                return result['woeid']
+#     def availableGeos(self):
+#         available = self.api.trends_available()
+#         for result in available:
+#             if(result['placeType']['name'] == 'Country' and result['name'] == 'United States' and result['country'] == 'United States'):
+#                 print result['woeid']
+#                 return result['woeid']
 
-    def getUnitedStatesWOEID(self):
-        return '23424977'
-
-
-    def __init__(self,botAlias):
-        with botUtil.botUtil() as helper:
-            self.api = ht.Bot(botAlias).api
-
-    def getTopics(self,woeid):
-        apiResult = self.api.trends_place(id=woeid)[0]
-        with botUtil.botUtil() as helper:
-            helper.WriteTrends(apiResult)
-        return [botUtil.topic(trend) for trend in apiResult['trends']]
+#     def getUnitedStatesWOEID(self):
+#         return '23424977'
 
 
-    def streamTopics(self,topics,languages = None):        
-        stream = tweepy.Stream(self.api.auth,writeOutStatusListener(topics,self.api))
-        track = [t.name for t in topics]
-        print track
-        stream.filter(track=track, languages=languages, async=True)
+#     def __init__(self,botAlias):
+#         with botUtil.botUtil() as helper:
+#             self.api = ht.Bot(botAlias).api
+
+#     def getTopics(self,woeid):
+#         apiResult = self.api.trends_place(id=woeid)[0]
+#         with botUtil.botUtil() as helper:
+#             helper.WriteTrends(apiResult)
+#         return [botUtil.topic(trend) for trend in apiResult['trends']]
+
+
+#     def streamTopics(self,topics,languages = None):        
+#         stream = tweepy.Stream(self.api.auth,writeOutStatusListener(topics,self.api))
+#         track = [t.name for t in topics]
+#         print track
+#         stream.filter(track=track, languages=languages, async=True)
 
 class BigStream(object):
     def flatten(l):
@@ -211,9 +217,12 @@ class BigStream(object):
         
     def __init__(self):
         sesh = SessionFactory()
-        bot = sesh.query(Bot).filter(Bot.alias == 'testvaxBot').first()
+        bot = sesh.query(Bot).first()
         bot.wakeUp(sesh)
+        print bot
+        
         self.api = bot.api
+       
         sesh.close()
 
     def run(self):
@@ -228,16 +237,17 @@ class BigStream(object):
         if hasattr(self,'stream'):
             self.stream.disconnect()
             
+        populateHashTag.run()
         self.refreshTopLists()
         self.stream = tweepy.Stream(self.api.auth, writeOutStatusListener([], self.api))
-        self.stream.filter(follow=self.top5000users, track=self.top400Hts, languages=['en'],async=False)
+        self.stream.filter(follow=self.top5000users, track=self.top400Hts, languages=['en'], async=False)
         
 if __name__ == '__main__':
     while(True):
-#        try:
+        try:
             BigStream().run()
-#        except Exception as e:
-#            print str(e)
+        except Exception as e:
+            print str(e)
             time.sleep(600)
             
     

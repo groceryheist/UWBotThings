@@ -2,7 +2,7 @@
 import sys
 sys.path.append("models/")
 from ModelBase import Status, HashTag, SessionFactory
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, not_, update
 import json
 
 def column_windows(session, column, windowsize):
@@ -49,41 +49,53 @@ def column_windows(session, column, windowsize):
             end = None
         yield int_for_range(start, end)
 
-def windowed_query(q, column, windowsize):
+def windowed_query(q, column, windowsize, limit = None):
     """"Break a Query into windows on a given column."""
-
+    count = 0
     for whereclause in column_windows(
                                         q.session, 
                                         column, windowsize):
         print 'nextwindow'
+        if(limit is not None and count > limit):
+            break
         for row in q.filter(whereclause).order_by(column):
+            count += 1
             yield row
-
-
-offset = 0
-chunksize = 1000
-sesh = SessionFactory()
-
-
-statuses = sesh.query(Status)
-count = statuses.count()
-
-for status in windowed_query(statuses, Status.sid, chunksize):
-    if(type(status.rawjson) == str or type(status.rawjson) == unicode):
-        js = json.loads(status.rawjson)
-    else:
-        js = status.rawjson
+            if(limit is not None and count > limit):
+                break
             
-    if('entities' in js):
-        entities = js['entities']
-        if 'hashtags' in entities:
-            hts = entities['hashtags']
-            for ht in hts:
-                if sesh.query(HashTag).filter(
-                    and_(HashTag.status==status.sid, HashTag.hashtag==ht['text'])).scalar() is None:
 
-                    sesh.add(HashTag(status=status.sid, hashtag=ht['text']))
-    count +=1
-    if count % chunksize == 0:
-        sesh.commit()
-sesh.close()
+if __name__ == '__main__':
+    run()
+
+def run():
+    offset = 0
+    chunksize = 100000
+    sesh = SessionFactory()
+
+    statuses = sesh.query(Status).filter(not_(Status.hashtagisset == True))
+    count = 0
+
+    for status in windowed_query(statuses, Status.sid, chunksize):
+        if(type(status.rawjson) == str or type(status.rawjson) == unicode):
+            js = json.loads(status.rawjson)
+        else:
+            js = status.rawjson
+
+        if('entities' in js):
+            entities = js['entities']
+            if 'hashtags' in entities:
+                hts = entities['hashtags']
+                for ht in hts:
+                        
+                        sesh.add(HashTag(status=status.sid, hashtag=ht['text']))
+        count +=1
+
+
+        sesh.flush()
+        if count % chunksize == 0:
+            sesh.commit()
+    statuses.update({Status.hashtagisset: True})
+
+    sesh.commit()
+    sesh.close()
