@@ -49,7 +49,7 @@ class Controller(object):
         s = sesh.query(func.lower(HashTag.hashtag), func.count(HashTag.status)).\
             join(Status, Status.sid == HashTag.status).\
             join(Twitter_User, Status.author_id == Twitter_User.uid).\
-            filter(and_(Twitter_User.istarget == True,Status.created_at != None, Status.created_at > (datetime.now() - timedelta(weeks=3)))).\
+            filter(and_(func.length(HashTag.hashtag) > 4, Twitter_User.istarget == True,Status.created_at != None, Status.created_at > (datetime.now() - timedelta(weeks=3)))).\
             group_by(func.lower(HashTag.hashtag)).all()
         sesh.close()
         result =  [ht[0] for ht in sorted(s, key=lambda s: -s[1])[0:n]] + self.ProVaxHashTags + self.AntiVaxHashTags
@@ -62,9 +62,14 @@ class Controller(object):
     AntiVaxHashTags = ["vaxtruth", "vaccinedebate", "hearthiswell", "cdcfraud", "vaccinescauseautism", "cdcfraudexposed", "cdccoverup", "parentsdothework", "saynotovaccines", "vaccineeducated"]
 
     def update_tweetGenerators(self):
+        sesh = SessionFactory()
         populateHashTag.run()
         for ht in self.getTopHashTags():
-            self.update_tweetGenerator(ht)
+          #  if sesh.query(Status).filter(func.lower(Status.text).contains(ht)).scalar() is not None:
+            try:
+                self.update_tweetGenerator(ht)
+            except AssertionError as e:
+                print str(e)
         # threads = []
         # for ht in self.getTopHashTags():
         #     t = Thread(target=self.update_tweetGenerator,args=[ht])

@@ -16,14 +16,8 @@ class randomTweetGenerator(object):
         self.corpusFile = hashtag + 'tweetCorpusClean.txt'
         self.makePlainTextCorpusFromDb(hashtag)
         mycorpus = nltk.corpus.PlaintextCorpusReader(root='.',fileids=self.corpusFile,word_tokenizer=WhitespaceTokenizer(),sent_tokenizer=BlanklineTokenizer())
-        
-    # est = lambda fdist, bins: LidstoneProbDist(fdist, 0.2)
-    # est = lambda fdist, bins: SimpleGoodTuringProbDist(fdist, None)
-    
-        text = mycorpus.words()
-    # unigrams = nltk.words(text)
-
-    # simport nltk.model.ngram
+            
+        text = mycorpus.words()    
         self.lm = nltk.model.ngram.NgramModel(n = 3, train = text)
         
     def makePlainTextCorpusFromDb(self, hashtag = ''):
@@ -31,7 +25,7 @@ class randomTweetGenerator(object):
         cursor = connection.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor,name=hashtag+'builder')
         psycopg2.extensions.register_type(psycopg2.extensions.UNICODE, cursor)
 
-        cursor.execute("SELECT DISTINCT txt, retweet_count FROM status WHERE status.txt ILIKE \'%%%s%%\';"%hashtag)
+        cursor.execute("SELECT  DISTINCT txt, retweet_count FROM status WHERE status.txt ILIKE \'%%%s%%\' LIMIT 100000;"%hashtag)
         items = []
         for item in cursor.fetchall():
             n = int(math.ceil(math.log(item.retweet_count + 1, 10)))
