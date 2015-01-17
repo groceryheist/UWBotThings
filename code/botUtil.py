@@ -24,7 +24,7 @@ class status(object):
         self.sid = tweepyStatus.id
         self.txt = tweepyStatus.text
         self.reply_id = tweepyStatus.in_reply_to_status_id
-        self.author_id = tweepyStatus.author.id
+        self.author_id = tweepyStatus._json['user']['id']
 
         self.created_at = botUtil.parseCreatedAt(tweepyStatus)
         if hasattr(tweepyStatus,'retweeted_tweepyStatus'):

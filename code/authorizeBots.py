@@ -5,6 +5,22 @@ from ModelBase import Bot, SessionFactory
 from Twitter_User import Twitter_User
 import apiKeys
 
+def AuthorizeExistingBots():
+
+    sesh = SessionFactory()
+
+    bots = sesh.query(Bot).all()
+    for bot in bots:
+        print bot.alias
+        auth = tweepy.OAuthHandler(apiKeys.consumer_key, apiKeys.consumer_secret)
+        print auth.get_authorization_url()
+        code = raw_input()
+        auth.get_access_token(code)
+
+        bot.access_key = auth.access_token.key
+        bot.access_secret = auth.access_token.secret
+        sesh.commit()
+
 
 def AuthorizeBot(alias):
     
@@ -21,6 +37,7 @@ def AuthorizeBot(alias):
     if(sesh.query(Twitter_User).filter(Twitter_User.uid == user.uid).scalar() is None):
         sesh.add(user)
         sesh.commit()
+
     bot = Bot(uid=user.uid, access_secret = auth.access_token.secret, access_key=auth.access_token.key, alias = alias)
     sesh.add(bot)
     print(bot)
@@ -29,6 +46,7 @@ def AuthorizeBot(alias):
         sesh.commit()
         sesh.close()
 
+AuthorizeExistingBots()
+#while(True):
+#    AuthorizeBot( raw_input() )
 
-while(True):
-    AuthorizeBot( raw_input() )

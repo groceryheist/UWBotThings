@@ -23,6 +23,7 @@ class writeOutStatusListener(tweepy.StreamListener):
         self.lock = threading.Lock()
         self.topics = topics
         self.currentChunk = StringIO.StringIO()
+        self.currentHtChunk = StringIO.StringIO()
         self.api = api
 
     def on_data(self, raw_data):
@@ -69,27 +70,33 @@ class writeOutStatusListener(tweepy.StreamListener):
 
     def _changeCurrentChunk(self):
         self.lock.acquire()
-        self.currentChunk = StringIO.StringIO()        
+        self.currentChunk = StringIO.StringIO()
+        self.currentHtChunk = StringIO.StringIO()       
         self.linesWritten = 0
         self.lock.release()
 
-    def write_chunk(self,chunktoCopy):
+    def write_chunk(self,chunktoCopy,htChunkToCopy):
         with botUtil.botUtil() as helper:
             cursor = helper.GetUpdateCursor()
             chunktoCopy.seek(0)
             try:
                 cursor.copy_from(chunktoCopy,'status',null='None',columns=['sid','txt','status_reply_id','author_id','retweet_id','retweet_count','user_reply_id','rawjson','created_at','trend_name','trend_query','is_truncated','url','status_reply_id_holding','retweet_id_holding'])
+
+                cursor.copy_from(htChunkToCopy, 'hashtags',columns=['status','hashtag'])
                 helper.commit()
             except Exception as e:
                 print(str(e))
             finally:
                 chunktoCopy.close()
+                htChunkToCopy.close()
 
     def commit_data(self):
         
             chunktoCopy = self.currentChunk
-            self._changeCurrentChunk()        
-            thread = threading.Thread(target=self.write_chunk,args=[chunktoCopy])
+            htChunkToCopy = self.currentHtChunk
+            self._changeCurrentChunk()
+            thread = threading.Thread(target=self.write_chunk,args=[chunktoCopy,htChunkToCopy])
+            
             thread.start()
             
             print 'chunk of statuses written'
@@ -137,6 +144,17 @@ class writeOutStatusListener(tweepy.StreamListener):
         statusObj = botUtil.status(tweepyStatus)
 
         self.currentChunk.write(unicode(statusObj).replace(u'\\\"','\\\\\"') + u'\n')
+        if('entities' in tweepyStatus._json):
+            if('hashtags' in tweepyStatus._json['entities']):
+                hashtags = tweepyStatus._json['entities']['hashtags']
+
+            else:
+                hashtags = None
+        else:
+            hashtags = None
+            
+        [self.currentHtChunk.write(str(tweepyStatus.id) + '\t' + ht['text']) for ht in hashtags]
+        
         self.linesWritten += 1
         if self.linesWritten >= self.chunk_size:
             self.commit_data()
@@ -210,7 +228,7 @@ class BigStream(object):
             filter(Twitter_User.istarget == True).\
             group_by(HashTag.hashtag).all()
             
-        self.top400Hts = [s[0] for s in sorted(s, key=lambda s: -s[1])[0:75]]
+        self.top400Hts = [s[0] for s in sorted(s, key=lambda s: -s[1])[0:40]]
         sesh.close()
 
 
@@ -237,7 +255,7 @@ class BigStream(object):
         if hasattr(self,'stream'):
             self.stream.disconnect()
             
-        populateHashTag.run()
+#        populateHashTag.run()
         self.refreshTopLists()
         self.stream = tweepy.Stream(self.api.auth, writeOutStatusListener([], self.api))
         self.stream.filter(follow=self.top5000users, track=self.top400Hts, languages=['en'], async=False)
@@ -248,7 +266,7 @@ if __name__ == '__main__':
             BigStream().run()
         except Exception as e:
             print str(e)
-            time.sleep(600)
+            time.sleep(120)
             
     
 # print t.getTopicQueries(t.getUnitedStatesWOEID())

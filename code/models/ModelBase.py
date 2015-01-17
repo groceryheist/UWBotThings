@@ -190,7 +190,7 @@ class Bot(Base):
     lastmention = Column(BigInteger)
     lastmessage = Column(BigInteger)
     lastawake = Column(DateTime)
-
+    lastspam = Column(DateTime)
     
     @staticmethod
     def fromRecordArray(rg):

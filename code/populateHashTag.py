@@ -49,34 +49,33 @@ def column_windows(session, column, windowsize):
             end = None
         yield int_for_range(start, end)
 
-def windowed_query(q, column, windowsize, limit = None):
+def windowed_query(q, column, windowsize, limit = None, order_by_column = None):
+    if(order_by_column is None):
+        order_by_column = column
     """"Break a Query into windows on a given column."""
     count = 0
     for whereclause in column_windows(
                                         q.session, 
                                         column, windowsize):
-        print 'nextwindow'
+        print str(q.filter(whereclause).order_by(order_by_column))
         if(limit is not None and count > limit):
             break
-        for row in q.filter(whereclause).order_by(column):
+        for row in q.filter(whereclause).order_by(order_by_column):
             count += 1
             yield row
             if(limit is not None and count > limit):
                 break
             
 
-if __name__ == '__main__':
-    run()
-
 def run():
     offset = 0
-    chunksize = 100000
+    chunksize = 1000
     sesh = SessionFactory()
-
-    statuses = sesh.query(Status).filter(not_(Status.hashtagisset == True))
+    sesh2 = SessionFactory()
+    statuses = sesh.query(Status)#.filter(not_(Status.hashtagisset == True))
     count = 0
 
-    for status in windowed_query(statuses, Status.sid, chunksize):
+    for status in windowed_query(statuses, Status.sid, chunksize, limit=1000, order_by_column = Status.created_at.desc()):
         if(type(status.rawjson) == str or type(status.rawjson) == unicode):
             js = json.loads(status.rawjson)
         else:
@@ -87,15 +86,18 @@ def run():
             if 'hashtags' in entities:
                 hts = entities['hashtags']
                 for ht in hts:
-                        
-                        sesh.add(HashTag(status=status.sid, hashtag=ht['text']))
+                    sesh2.add(HashTag(status=status.sid, hashtag=ht['text']))
         count +=1
 
 
-        sesh.flush()
+        sesh2.flush()
         if count % chunksize == 0:
-            sesh.commit()
+            sesh2.commit()
     statuses.update({Status.hashtagisset: True})
-
     sesh.commit()
     sesh.close()
+    sesh2.commit()
+    sesh2.close()
+
+if __name__ == '__main__':
+    run()

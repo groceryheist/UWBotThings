@@ -16,7 +16,7 @@ class randomTweetGenerator(object):
         self.corpusFile = hashtag + 'tweetCorpusClean.txt'
         self.makePlainTextCorpusFromDb(hashtag)
         mycorpus = nltk.corpus.PlaintextCorpusReader(root='.',fileids=self.corpusFile,word_tokenizer=WhitespaceTokenizer(),sent_tokenizer=BlanklineTokenizer())
-            
+        
         text = mycorpus.words()    
         self.lm = nltk.model.ngram.NgramModel(n = 3, train = text)
         

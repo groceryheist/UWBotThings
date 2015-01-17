@@ -10,6 +10,9 @@ if __name__ == '__main__':
         b.wakeUp(sesh)
         
         try:
-            print unicode(b.alias + ','.join([msg.text for msg in b.api.direct_messages()]))
+            print b.alias
+            st = b.api.update_status('test')
+            b.api.destroy_status(st.id)
+#            print unicode(b.alias + ','.join([msg.text for msg in b.api.direct_messages()]))
         except Exception as e:
             print unicode(b.alias + str(e))

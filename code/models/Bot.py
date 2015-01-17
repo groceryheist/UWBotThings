@@ -17,7 +17,7 @@ class BotUserListener(tweepy.StreamListener):
     def __init__(self, api):
         self.api = api
         self.numAdded = 0
-        self.lastspam = None
+
        
 
     def on_error(self, status_code):
@@ -71,7 +71,7 @@ class Bot(Bot):
         self.curtime += random.gauss(mu,sigma)
         return self.curtime
     
-    def awakeLoop(self, tweets, targetUsers, awakeTime=1800, spamTweet=None):
+    def awakeLoop(self, tweets, targetUsers, awakeTime=1800, spamTweet=None, tweet_generators = None):
         # use rest API to get my statuses and make some tweets
         # number of tweets to make is a function of activity
         # activity level is the proportion of possible actions to make
@@ -88,7 +88,7 @@ class Bot(Bot):
         
         #handle my most recent retweets, relies, messages
 
-        myMentions = self.api.mentions_timeline(count = 200, since = self.lastmention)
+        myMentions = self.api.mentions_timeline(count = 200, since = self.lastmention + 1)
 
  #       mychanges = sesh.merge(self)
         if len(myMentions) > 0:
@@ -104,7 +104,7 @@ class Bot(Bot):
         Status.AddManyStatusFromTweepy(myMentions)
         mentionEvents = random.sample(myMentions, int(math.floor(self.activity_level * min([len(myMentions),20.0]))))
 
-        myMessages = self.api.direct_messages(since = self.lastmessage, count = 200)
+        myMessages = self.api.direct_messages(since = self.lastmessage+1, count = 200)
 
         if len(myMessages) > 0:
             self.lastmessage = min([m.id for m in myMessages])
@@ -134,14 +134,14 @@ class Bot(Bot):
             actions.append( (self.makeStatus, [message]) )
 
         for user in userinteractionEvents:
-            actions.append((self.engageUser, [user]))
+            actions.append((self.engageUser, [user, tweet_generators]))
 
 
         for mention in mentionEvents:
-            actions.append((self.respondToMention, [mention]))
+            actions.append((self.respondToMention, [mention,  tweet_generators]))
         
         for message in myMessages:
-            actions.append((self.respondToMessage, [message]))
+            actions.append((self.respondToMessage, [message,tweet_generators]))
 
         random.shuffle(actions)
         events = [threading.Timer(self.nextEventTime(mu, sigma), a[0], a[1]) for a in actions]
@@ -158,21 +158,18 @@ class Bot(Bot):
        # sesh.commit()
        # sesh.close()
 
-    def respondToMessage(self, message):
-
-        if('bot' in message.text.lower()):
-            if hasattr(self,'botMessages'):
-                botMsgs = ["You're kidding!","I'm not a bot dude!","WTF I'm not a fucking bot jerk!","Fuck Off I'm blocking you! I'm not a bot"]
-                if(len(botMsgs) < botMessages):
-                    toSend = botMsgs[-1]
+    def respondToMessage(self, message, tweet_generators = None, sesh = None):
+        try:
+            myFollowers = self.api.followers_ids(count=5000)
+            if message.sender.id in myFollowers:
+                if('bot' in message.text.lower()):
+                    msg = self.getBotMessageResponse()
                 else:
-                    toSend = botMsgs[botMessages]
-                self.api.send_direct_message(user_id = message.sender.id , text=toSend)
-                self.botMessages+=1                
-            else:
-                self.botMessages=1
-        else:
-            self.api.send_direct_message(user_id=message.sender.id, text=self.getResponseTweet())
+                    msg = self.getResponseTweet(tweet_generators)
+                self.api.send_direct_message(user_id=message.sender.id, text=msg)
+        except Exception as e:
+            print str(e)
+            print 'bot:%s sender:%s'%(self.alias,message.sender.id)
 
         
     def addFollow(self,id):
@@ -192,13 +189,35 @@ class Bot(Bot):
         sesh.close()
         return newFollowers
 
-    def getResponseTweet(self):
-        return random.sample(["I'm not really sure I understand?","Where did you get that idea? Love that!","Awesome thoughts on that front.", "Where is your info coming from?", "Haha...love your opinions.", "Not following?", "Really?", "Right?!", "Not sure I'm following.", "Thanks for reaching out!", "Appreciate the interest!", "No way! Cool!", "Thanks for that.", "Muchas gracias.", "Haha", "yep yep.", "Muy bien!", "Haha. Nice!", "Radical.", "Radically glorious!", "Didn't think of that...but cool.", "Not sure?"], 1)[0]
-    
-    def respondToMention(self, mention):
-        self.makeStatus( '@' + mention.user.screen_name + ' ' + self.getResponseTweet())
+    def getResponseTweet(self, tweet_generators = None):
+        ts = ["I'm not really sure I understand?","Where did you get that idea? Love that!","Awesome thoughts on that front.", "Where is your info coming from?", "Haha...love your opinions.","Awesome", "So Cool", "You are smart","My head hurts","Nice" "Really?", "Right?!", "Thanks for reaching out!", "Appreciate the interest!", "No way! Cool!", "Thanks for that.", "Muchas gracias.", "Haha", "yep yep.", "Muy bien!", "Haha. Nice!", "Radical.", "Radically glorious!", "Didn't think of that...but cool.", "Not sure?"]
+        if tweet_generators is not None:
+                ts = ts + [tg.generateTweet() for tg in random.sample(tweet_generators.values(),4)]
+                
+        return random.sample(ts , 1)[0]
 
-    def engageUser(self, user):
+    def getBotMessageResponse(self):
+        if hasattr(self,'botMessages'):
+            botMsgs = ["You're kidding!","I'm not a bot dude!","WTF I'm not a fucking bot jerk!","Fuck Off I'm blocking you! I'm not a bot"]
+            if(len(botMsgs) < self.botMessages):
+                toSend = botMsgs[-1]
+            else:
+                toSend = botMsgs[self.botMessages]
+                self.botMessages+=1
+            return toSend
+        else:
+            self.botMessages = 1
+            return botMsgs[0]
+
+    
+    def respondToMention(self, mention, tweet_generators=None):
+        if 'bot' in mention.text.lower():
+            msg = self.getBotMessageResponse()
+        else:
+            msg = self.getResponseTweet(tweet_generators)
+        self.makeStatus( '@' + mention.user.screen_name + ' ' + msg, mention.id)
+
+    def engageUser(self, user, tweet_generators = None):
         sesh = SessionFactory()
         bot = sesh.merge(self)
         user = sesh.merge(user)
@@ -208,7 +227,7 @@ class Bot(Bot):
             bot.api.retweet(s.id)
 
             if random.randint(0, 5) % 3 == 1:
-                bot.api.update_status(text = self.getOutReachTweet(user.user_name),in_reply_to_status_id = s.id)
+                bot.api.update_status(text = self.getOutReachTweet(user.user_name, tweet_generators),in_reply_to_status_id = s.id)
         except Exception as e:
             print(str(e))
             print('for bot:%s, user:%s, status:%s'%(bot, user.uid, s.id))
@@ -216,14 +235,16 @@ class Bot(Bot):
         print ('user:%s is following user%s')%(bot.alias, user.user_name)
         self.follow(targetUid = user.uid)
 
-    def getOutReachTweet(self,screen_name):
-        ts =["Hey [user] love your thoughts!", "[user] you're ideas here are spot on.", "[user] thanks for a refreshing perspective.","[user] Thanks for pushing me to think differently?", "[user] awesome combo of info and hilarity!", "[user] your tweets are spot on. Nice work.", "[user] Rad stuff! Cool thoughts. Yo", "[user], really liking your perspective here.", "hey [user], interesting thoughts!", "[user]--great tweet content!", "[user] your tweeting skills are legendary!", "Seriously cool stuff :) [user]","Nice work [user]"]
+    def getOutReachTweet(self,screen_name, tweet_generators = None):
+        ts = ["Hey [user] love your thoughts!", "[user] you're ideas here are spot on.", "[user] thanks for a refreshing perspective.","[user] Thanks for pushing me to think differently?", "[user] awesome combo of info and hilarity!", "[user] your tweets are spot on. Nice work.", "[user] Rad stuff! Cool thoughts. Yo", "[user], really liking your perspective here.", "hey [user], interesting thoughts!", "[user]--great tweet content!", "[user] your tweeting skills are legendary!", "Seriously cool stuff :) [user]","Nice work [user]"]
+        if tweet_generators is not None:
+            ts = ts + [tg.generateTweet() for tg in random.sample(tweet_generators.values() ,4)]
         return random.sample(ts,1)[0].replace('[user]','@'+screen_name)
         
-    def makeStatus(self, message):
+    def makeStatus(self, message, in_reply_to_status_id = None):
         print 'trying to tweet:' + message
         try:
-            self.api.update_status(status=message)
+            self.api.update_status(status=message, in_reply_to_status_id = in_reply_to_status_id)
         except Exception as e:
             print 'exception maing status in Bot.py line 225'
             print str(e)
